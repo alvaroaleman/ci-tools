@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-test/deep"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pmezard/go-difflib/difflib"
@@ -1093,9 +1094,10 @@ func TestGeneratePresubmitForTest(t *testing.T) {
 
 		expected: &prowconfig.Presubmit{
 			JobBase: prowconfig.JobBase{
-				Agent:  "kubernetes",
-				Labels: standardJobLabels,
-				Name:   "pull-ci-org-repo-branch-testname",
+				Agent:   "kubernetes",
+				Cluster: "api.ci",
+				Labels:  standardJobLabels,
+				Name:    "pull-ci-org-repo-branch-testname",
 				UtilityConfig: prowconfig.UtilityConfig{
 					DecorationConfig: &v1.DecorationConfig{SkipCloning: &newTrue},
 					Decorate:         true,
@@ -1112,8 +1114,8 @@ func TestGeneratePresubmitForTest(t *testing.T) {
 	}}
 	for _, tc := range tests {
 		presubmit := generatePresubmitForTest(tc.name, tc.repoInfo, jobconfig.Generated, nil, true, nil) // podSpec tested in generatePodSpec
-		if !equality.Semantic.DeepEqual(presubmit, tc.expected) {
-			t.Errorf("expected presubmit diff:\n%s", diff.ObjectDiff(tc.expected, presubmit))
+		if diff := deep.Equal(presubmit, tc.expected); diff != nil {
+			t.Errorf("expected presubmit diff:\n%v", diff)
 		}
 	}
 }
@@ -1137,9 +1139,10 @@ func TestGeneratePostSubmitForTest(t *testing.T) {
 
 			expected: &prowconfig.Postsubmit{
 				JobBase: prowconfig.JobBase{
-					Agent:  "kubernetes",
-					Labels: standardJobLabels,
-					Name:   "branch-ci-organization-repository-branch-name",
+					Agent:   "kubernetes",
+					Labels:  standardJobLabels,
+					Cluster: "api.ci",
+					Name:    "branch-ci-organization-repository-branch-name",
 					UtilityConfig: prowconfig.UtilityConfig{
 						DecorationConfig: &v1.DecorationConfig{SkipCloning: &newTrue},
 						Decorate:         true,
@@ -1159,9 +1162,10 @@ func TestGeneratePostSubmitForTest(t *testing.T) {
 
 			expected: &prowconfig.Postsubmit{
 				JobBase: prowconfig.JobBase{
-					Agent:  "kubernetes",
-					Name:   "branch-ci-Organization-Repository-Branch-Name",
-					Labels: map[string]string{"ci-operator.openshift.io/prowgen-controlled": "true"},
+					Agent:   "kubernetes",
+					Name:    "branch-ci-Organization-Repository-Branch-Name",
+					Labels:  map[string]string{"ci-operator.openshift.io/prowgen-controlled": "true"},
+					Cluster: "api.ci",
 					UtilityConfig: prowconfig.UtilityConfig{
 						DecorationConfig: &v1.DecorationConfig{SkipCloning: &newTrue},
 						Decorate:         true,
@@ -1179,9 +1183,10 @@ func TestGeneratePostSubmitForTest(t *testing.T) {
 
 			expected: &prowconfig.Postsubmit{
 				JobBase: prowconfig.JobBase{
-					Agent:  "kubernetes",
-					Name:   "branch-ci-Organization-Repository-Branch-name",
-					Labels: map[string]string{"ci-operator.openshift.io/prowgen-controlled": "true"},
+					Agent:   "kubernetes",
+					Name:    "branch-ci-Organization-Repository-Branch-name",
+					Labels:  map[string]string{"ci-operator.openshift.io/prowgen-controlled": "true"},
+					Cluster: "api.ci",
 					UtilityConfig: prowconfig.UtilityConfig{
 						DecorationConfig: &v1.DecorationConfig{SkipCloning: &newTrue},
 						Decorate:         true,
@@ -1192,8 +1197,8 @@ func TestGeneratePostSubmitForTest(t *testing.T) {
 	}
 	for _, tc := range tests {
 		postsubmit := generatePostsubmitForTest(tc.name, tc.repoInfo, jobconfig.Generated, nil, nil) // podSpec tested in TestGeneratePodSpec
-		if !equality.Semantic.DeepEqual(postsubmit, tc.expected) {
-			t.Errorf("expected postsubmit diff:\n%s", diff.ObjectDiff(tc.expected, postsubmit))
+		if diff := deep.Equal(postsubmit, tc.expected); diff != nil {
+			t.Errorf("expected postsubmit diff:\n%v", diff)
 		}
 	}
 }
@@ -1225,8 +1230,9 @@ func TestGenerateJobs(t *testing.T) {
 			expected: &prowconfig.JobConfig{
 				PresubmitsStatic: map[string][]prowconfig.Presubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-derTest",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-derTest",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}}, {
 					Optional: true,
 					JobBase: prowconfig.JobBase{
@@ -1235,8 +1241,9 @@ func TestGenerateJobs(t *testing.T) {
 						Cluster: "ci/api-build01-ci-devcluster-openshift-com:6443",
 					}, Reporter: prowconfig.Reporter{SkipReport: true}}, {
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-leTest",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-leTest",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}}, {
 					Optional: true,
 					JobBase: prowconfig.JobBase{
@@ -1264,8 +1271,9 @@ func TestGenerateJobs(t *testing.T) {
 			expected: &prowconfig.JobConfig{
 				PresubmitsStatic: map[string][]prowconfig.Presubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-derTest",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-derTest",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}}, {
 					Optional: true,
 					JobBase: prowconfig.JobBase{
@@ -1274,8 +1282,9 @@ func TestGenerateJobs(t *testing.T) {
 						Cluster: "ci/api-build01-ci-devcluster-openshift-com:6443",
 					}, Reporter: prowconfig.Reporter{SkipReport: true}}, {
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-leTest",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-leTest",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}}, {
 					Optional: true,
 					JobBase: prowconfig.JobBase{
@@ -1284,8 +1293,9 @@ func TestGenerateJobs(t *testing.T) {
 						Cluster: "ci/api-build01-ci-devcluster-openshift-com:6443",
 					}, Reporter: prowconfig.Reporter{SkipReport: true}}, {
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-images",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-images",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}}, {
 					Optional: true,
 					JobBase: prowconfig.JobBase{
@@ -1296,8 +1306,9 @@ func TestGenerateJobs(t *testing.T) {
 				}},
 				PostsubmitsStatic: map[string][]prowconfig.Postsubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "branch-ci-organization-repository-branch-images",
-						Labels: standardPostsubmitJobLabels,
+						Name:    "branch-ci-organization-repository-branch-images",
+						Labels:  standardPostsubmitJobLabels,
+						Cluster: "api.ci",
 					}},
 				}},
 			},
@@ -1323,8 +1334,9 @@ func TestGenerateJobs(t *testing.T) {
 			expected: &prowconfig.JobConfig{
 				PresubmitsStatic: map[string][]prowconfig.Presubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-oTeste",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-oTeste",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}},
 				}},
 			},
@@ -1346,8 +1358,9 @@ func TestGenerateJobs(t *testing.T) {
 			expected: &prowconfig.JobConfig{
 				PresubmitsStatic: map[string][]prowconfig.Presubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-oTeste",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-oTeste",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}},
 				}},
 			},
@@ -1366,8 +1379,9 @@ func TestGenerateJobs(t *testing.T) {
 			expected: &prowconfig.JobConfig{
 				PresubmitsStatic: map[string][]prowconfig.Presubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-images",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-images",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}}, {
 					Optional: true,
 					JobBase: prowconfig.JobBase{
@@ -1378,8 +1392,9 @@ func TestGenerateJobs(t *testing.T) {
 				}},
 				PostsubmitsStatic: map[string][]prowconfig.Postsubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "branch-ci-organization-repository-branch-images",
-						Labels: standardPostsubmitJobLabels,
+						Name:    "branch-ci-organization-repository-branch-images",
+						Labels:  standardPostsubmitJobLabels,
+						Cluster: "api.ci",
 					}},
 				}},
 			},
@@ -1400,8 +1415,9 @@ func TestGenerateJobs(t *testing.T) {
 			expected: &prowconfig.JobConfig{
 				PresubmitsStatic: map[string][]prowconfig.Presubmit{"organization/repository": {{
 					JobBase: prowconfig.JobBase{
-						Name:   "pull-ci-organization-repository-branch-images",
-						Labels: standardPresubmitJobLabels,
+						Name:    "pull-ci-organization-repository-branch-images",
+						Labels:  standardPresubmitJobLabels,
+						Cluster: "api.ci",
 					}}, {
 					Optional: true,
 					JobBase: prowconfig.JobBase{
@@ -1809,6 +1825,7 @@ func TestGenerateJobBase(t *testing.T) {
 				Labels: map[string]string{
 					"ci-operator.openshift.io/prowgen-controlled": "true",
 				},
+				Cluster:       "api.ci",
 				Spec:          &kubeapi.PodSpec{Containers: []kubeapi.Container{{Name: "test"}}},
 				UtilityConfig: prowconfig.UtilityConfig{Decorate: true, DecorationConfig: &v1.DecorationConfig{SkipCloning: &yes}},
 			},
@@ -1828,6 +1845,7 @@ func TestGenerateJobBase(t *testing.T) {
 					"ci-operator.openshift.io/prowgen-controlled": "true",
 					"pj-rehearse.openshift.io/can-be-rehearsed":   "true",
 				},
+				Cluster:       "api.ci",
 				Spec:          &kubeapi.PodSpec{Containers: []kubeapi.Container{{Name: "test"}}},
 				UtilityConfig: prowconfig.UtilityConfig{Decorate: true, DecorationConfig: &v1.DecorationConfig{SkipCloning: &yes}},
 			},
@@ -1846,6 +1864,7 @@ func TestGenerateJobBase(t *testing.T) {
 					"ci-operator.openshift.io/prowgen-controlled": "true",
 					"ci-operator.openshift.io/variant":            "whatever",
 				},
+				Cluster:       "api.ci",
 				Spec:          &kubeapi.PodSpec{Containers: []kubeapi.Container{{Name: "test"}}},
 				UtilityConfig: prowconfig.UtilityConfig{Decorate: true, DecorationConfig: &v1.DecorationConfig{SkipCloning: &yes}},
 			},
@@ -1865,6 +1884,7 @@ func TestGenerateJobBase(t *testing.T) {
 					"ci-operator.openshift.io/prowgen-controlled": "true",
 					"ci-operator.openshift.io/variant":            "whatever",
 				},
+				Cluster:       "api.ci",
 				Spec:          &kubeapi.PodSpec{Containers: []kubeapi.Container{{Name: "test"}}},
 				UtilityConfig: prowconfig.UtilityConfig{Decorate: true, DecorationConfig: &v1.DecorationConfig{SkipCloning: &yes}, PathAlias: "/some/where"},
 			},
@@ -1885,6 +1905,7 @@ func TestGenerateJobBase(t *testing.T) {
 				Labels: map[string]string{
 					"ci-operator.openshift.io/prowgen-controlled": "true",
 				},
+				Cluster:       "api.ci",
 				Spec:          &kubeapi.PodSpec{Containers: []kubeapi.Container{{Name: "test"}}},
 				UtilityConfig: prowconfig.UtilityConfig{Decorate: true, DecorationConfig: &v1.DecorationConfig{SkipCloning: &yes}},
 				Hidden:        true,

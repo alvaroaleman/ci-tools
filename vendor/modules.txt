@@ -98,6 +98,8 @@ github.com/getlantern/deepcopy
 github.com/ghodss/yaml
 # github.com/go-logr/logr v0.1.0
 github.com/go-logr/logr
+# github.com/go-test/deep v1.0.4
+github.com/go-test/deep
 # github.com/gogo/protobuf v1.3.1
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys

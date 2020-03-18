@@ -25,6 +25,7 @@ postsubmits:
   - agent: kubernetes
     branches:
     - ^branch$
+    cluster: api.ci
     decorate: true
     decoration_config:
       skip_cloning: true

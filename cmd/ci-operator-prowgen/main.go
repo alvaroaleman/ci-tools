@@ -36,6 +36,7 @@ const (
 	oauthKey        = "oauth"
 
 	build01Context = "ci/api-build01-ci-devcluster-openshift-com:6443"
+	defaultCluster = "api.ci"
 )
 
 type options struct {
@@ -468,10 +469,11 @@ func generateJobBase(name, prefix string, info *prowgenInfo, label jc.ProwgenLab
 	newTrue := true
 	dc := &v1.DecorationConfig{SkipCloning: &newTrue}
 	base := prowconfig.JobBase{
-		Agent:  string(v1.KubernetesAgent),
-		Labels: labels,
-		Name:   jobName,
-		Spec:   podSpec,
+		Agent:   string(v1.KubernetesAgent),
+		Cluster: defaultCluster,
+		Labels:  labels,
+		Name:    jobName,
+		Spec:    podSpec,
 		UtilityConfig: prowconfig.UtilityConfig{
 			DecorationConfig: dc,
 			Decorate:         true,
