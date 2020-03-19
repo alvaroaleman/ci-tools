@@ -416,7 +416,9 @@ func mergePresubmits(old, new *prowconfig.Presubmit) prowconfig.Presubmit {
 	merged.Optional = old.Optional
 	merged.MaxConcurrency = old.MaxConcurrency
 	merged.SkipReport = old.SkipReport
-	merged.Cluster = old.Cluster
+	if old.Cluster != "" {
+		merged.Cluster = old.Cluster
+	}
 
 	return merged
 }
