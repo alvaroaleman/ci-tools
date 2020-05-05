@@ -11,9 +11,8 @@ import (
 	"path/filepath"
 	"syscall"
 
-	coreclientset "k8s.io/client-go/kubernetes/typed/core/v1"
-
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	coreclientset "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"github.com/openshift/ci-tools/pkg/steps"
 	"github.com/openshift/ci-tools/pkg/util"

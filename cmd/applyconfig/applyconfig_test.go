@@ -13,7 +13,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	templateapi "github.com/openshift/api/template/v1"
 	"github.com/sirupsen/logrus"
-
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/test-infra/prow/logrusutil"
 )

@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/openshift/ci-tools/pkg/api"
 	githubql "github.com/shurcooL/githubv4"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 
+	"github.com/openshift/ci-tools/pkg/api"
 	"github.com/openshift/ci-tools/pkg/config"
 	"github.com/openshift/ci-tools/pkg/promotion"
 )

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-
 	"k8s.io/test-infra/prow/interrupts"
 
 	"github.com/openshift/ci-tools/pkg/api"
