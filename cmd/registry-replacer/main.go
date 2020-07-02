@@ -28,10 +28,11 @@ import (
 )
 
 type options struct {
-	configDir      string
-	createPR       bool
-	githubUserName string
-	selfApprove    bool
+	configDir               string
+	createPR                bool
+	githubUserName          string
+	selfApprove             bool
+	pruneUnusedReplacements bool
 	flagutil.GitHubOptions
 }
 
@@ -133,8 +134,18 @@ func replacer(
 			return fmt.Errorf("failed to marshal config for comparison: %w", err)
 		}
 
-		for idx := range config.Images {
-			foundTags, err := ensureReplacement(&config.Images[idx], githubFileGetterFactory(info.Org, info.Repo, info.Branch))
+		getter := githubFileGetterFactory(info.Org, info.Repo, info.Branch)
+		allSourceImages := sets.String{}
+		for idx, image := range config.Images {
+			dockerFilePath := "Dockerfile"
+			if image.DockerfilePath != "" {
+				dockerFilePath = image.DockerfilePath
+			}
+			data, err := getter(filepath.Join(image.ContextDir, dockerFilePath))
+			if err != nil {
+				return fmt.Errorf("failed to get dockerfile %s:%s@%s:/%s: %w", info.Org, info.Repo, info.Branch, dockerFilePath, err)
+			}
+			foundTags, err := ensureReplacement(&config.Images[idx], data)
 			if err != nil {
 				return fmt.Errorf("failed to ensure replacements: %w", err)
 			}
@@ -151,6 +162,11 @@ func replacer(
 					Tag:       foundTag.tag,
 				}
 			}
+			sourceImages, err := extractAllSourceImagesFromDockerfile(data)
+			if err != nil {
+				return fmt.Errorf("failed to extract source images from dockerfile: %w", err)
+			}
+			allSourceImages.Insert(sourceImages.UnsortedList()...)
 		}
 
 		newConfig, err := yaml.Marshal(config)
@@ -171,6 +187,32 @@ func replacer(
 	}
 }
 
+func pruneUnusedReplacements(config *api.ReleaseBuildConfiguration, allSourceImages sets.String) {
+	var prunedImages []api.ProjectDirectoryImageBuildStepConfiguration
+	for _, image := range config.Images {
+		for k, sourceImage := range image.Inputs {
+			var newAs []string
+			for _, sourceImage := range sourceImage.As {
+				if allSourceImages.Has(sourceImage) {
+					newAs = append(newAs, sourceImage)
+				}
+			}
+			if len(newAs) == 0 {
+				delete(image.Inputs, k)
+			} else {
+				copy := image.Inputs[k]
+				copy.As = newAs
+				image.Inputs[k] = copy
+			}
+		}
+		if len(image.Inputs) > 0 {
+			prunedImages = append(prunedImages, image)
+		}
+	}
+
+	config.Images = prunedImages
+}
+
 var registryRegex = regexp.MustCompile(`registry\.svc\.ci\.openshift\.org\/[^\s]+`)
 
 type orgRepoTag struct{ org, repo, tag string }
@@ -179,17 +221,7 @@ func (ort orgRepoTag) String() string {
 	return ort.org + "_" + ort.repo + "_" + ort.tag
 }
 
-func ensureReplacement(image *api.ProjectDirectoryImageBuildStepConfiguration, getter githubFileGetter) ([]orgRepoTag, error) {
-	dockerFilePath := "Dockerfile"
-	if image.DockerfilePath != "" {
-		dockerFilePath = image.DockerfilePath
-	}
-
-	data, err := getter(filepath.Join(image.ContextDir, dockerFilePath))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get dockerfile %s: %w", image.DockerfilePath, err)
-	}
-
+func ensureReplacement(image *api.ProjectDirectoryImageBuildStepConfiguration, data []byte) ([]orgRepoTag, error) {
 	var toReplace []string
 	for _, line := range bytes.Split(data, []byte("\n")) {
 		if !bytes.Contains(line, []byte("FROM")) {
@@ -350,4 +382,27 @@ type censor struct {
 
 func (c *censor) Censor(data []byte) []byte {
 	return bytes.ReplaceAll(data, c.secret, []byte("<< REDACTED >>"))
+}
+
+func extractAllSourceImagesFromDockerfile(dockerfile []byte) (sets.String, error) {
+	aliases := sets.String{}
+	results := sets.String{}
+	for _, line := range bytes.Split(dockerfile, []byte("\n")) {
+		words := bytes.Fields(line)
+		if len(words) < 1 || !bytes.EqualFold(words[0], []byte("from")) {
+			continue
+		}
+		if n := len(words); n != 2 && n != 4 {
+			return nil, fmt.Errorf("extracting words from line %q did not yield two or four but %d results", string(line), n)
+		}
+		if len(words) == 4 {
+			aliases.Insert(string(words[3]))
+		}
+		if aliases.Has(string(words[1])) {
+			continue
+		}
+		results.Insert(string(words[1]))
+	}
+
+	return results, nil
 }

@@ -3,6 +3,9 @@ package main
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/openshift/ci-tools/pkg/api"
 	"github.com/openshift/ci-tools/pkg/config"
 	"github.com/openshift/ci-tools/pkg/testhelper"
@@ -132,5 +135,153 @@ func fakeGithubFileGetterFactory(data map[string][]byte) func(string, string, st
 		return func(path string) ([]byte, error) {
 			return data[path], nil
 		}
+	}
+}
+
+func TestExtractAllSourceImagesFromDockerfile(t *testing.T) {
+	testCases := []struct {
+		name           string
+		in             string
+		expectedError  string
+		expectedResult sets.String
+	}{
+		{
+			name:           "simple",
+			in:             "FROM capetown/center:1",
+			expectedResult: sets.NewString("capetown/center:1"),
+		},
+		{
+			name:           "multi-stage",
+			in:             "from capetown/center:1 as builder\nFROM builder",
+			expectedResult: sets.NewString("capetown/center:1"),
+		},
+		{
+			name: "unrelated directives",
+			in:   "RUN somestuff\n\n\n ENV var=val",
+		},
+		{
+			name:          "defunct from",
+			in:            "from\n\n",
+			expectedError: `extracting words from line "from" did not yield two or four but 1 results`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var actualErrMsg string
+			result, err := extractAllSourceImagesFromDockerfile([]byte(tc.in))
+			if err != nil {
+				actualErrMsg = err.Error()
+			}
+			if actualErrMsg != tc.expectedError {
+				t.Fatalf("expected error %s, got error %s", tc.expectedError, actualErrMsg)
+			}
+			if err != nil {
+				return
+			}
+
+			if diff := result.Difference(tc.expectedResult); len(diff) > 0 {
+				t.Errorf("result differs from expected: %v", diff.List())
+			}
+		})
+	}
+}
+
+func TestPruneUnusedReplacements(t *testing.T) {
+	testCases := []struct {
+		name            string
+		in              *api.ReleaseBuildConfiguration
+		allSourceImages sets.String
+		expected        *api.ReleaseBuildConfiguration
+	}{
+		{
+			name: "All replacements are valid",
+			in: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"builder": {As: []string{"some-image"}},
+						},
+					},
+				}},
+			},
+			allSourceImages: sets.NewString("some-image"),
+			expected: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"builder": {As: []string{"some-image"}},
+						},
+					},
+				}},
+			},
+		},
+		{
+			name: "One As gets removed",
+			in: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"builder": {As: []string{"some-image", "superfluous"}},
+						},
+					}},
+				},
+			},
+			allSourceImages: sets.NewString("some-image"),
+			expected: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"builder": {As: []string{"some-image"}},
+						},
+					}},
+				},
+			},
+		},
+		{
+			name: "One input is empty and gets removed",
+			in: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"builder":   {As: []string{"some-image"}},
+							"architect": {As: []string{"who-needs-this"}},
+						},
+					}},
+				},
+			},
+			allSourceImages: sets.NewString("some-image"),
+			expected: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"builder": {As: []string{"some-image"}},
+						},
+					}},
+				},
+			},
+		},
+		{
+			name: "Whole image is empty and gets removed",
+			in: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"builder": {As: []string{"some-image"}},
+						},
+					}},
+				},
+			},
+			expected: &api.ReleaseBuildConfiguration{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pruneUnusedReplacements(tc.in, tc.allSourceImages)
+			if diff := cmp.Diff(tc.in, tc.expected); diff != "" {
+				t.Errorf("result differs from expected: %s", diff)
+			}
+		})
 	}
 }
