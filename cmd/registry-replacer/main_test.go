@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -8,17 +9,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/openshift/ci-tools/pkg/api"
+	"github.com/openshift/ci-tools/pkg/api/ocpbuilddata"
 	"github.com/openshift/ci-tools/pkg/config"
 	"github.com/openshift/ci-tools/pkg/github"
 	"github.com/openshift/ci-tools/pkg/testhelper"
 )
 
 func TestReplacer(t *testing.T) {
+	majorMinor := ocpbuilddata.MajorMinor{Major: "4", Minor: "6"}
 	testCases := []struct {
 		name                               string
 		config                             *api.ReleaseBuildConfiguration
 		pruneUnusedReplacementsEnabled     bool
 		pruneOCPBuilderReplacementsEnabled bool
+		ensureCorrectPromotionDockerfile   bool
+		promotionTargetToDockerfileMapping map[string]string
 		files                              map[string][]byte
 		expectWrite                        bool
 	}{
@@ -143,6 +148,97 @@ func TestReplacer(t *testing.T) {
 			pruneOCPBuilderReplacementsEnabled: true,
 			expectWrite:                        true,
 		},
+		{
+			name: "Dockerfile gets fixed up",
+			config: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"root": {As: []string{"ocp/builder:something"}},
+						},
+					},
+					To: "promotionTarget",
+				}},
+				PromotionConfiguration: &api.PromotionConfiguration{Namespace: "ocp", Name: majorMinor.String()},
+				Metadata:               api.Metadata{Branch: "master"},
+			},
+			ensureCorrectPromotionDockerfile:   true,
+			promotionTargetToDockerfileMapping: map[string]string{fmt.Sprintf("registry.svc.ci.openshift.org/ocp/%s:promotionTarget", majorMinor.String()): "Dockerfile.rhel"},
+			expectWrite:                        true,
+		},
+		{
+			name: "Config for non-master branch is ignored",
+			config: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						Inputs: map[string]api.ImageBuildInputs{
+							"root": {As: []string{"ocp/builder:something"}},
+						},
+					},
+					To: "promotionTarget",
+				}},
+				PromotionConfiguration: &api.PromotionConfiguration{Namespace: "ocp", Name: majorMinor.String()},
+			},
+			ensureCorrectPromotionDockerfile:   true,
+			promotionTargetToDockerfileMapping: map[string]string{fmt.Sprintf("registry.svc.ci.openshift.org/ocp/%s:promotionTarget", majorMinor.String()): "Dockerfile.rhel"},
+		},
+		{
+			name: "Dockerfile is correct, nothing to do",
+			config: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						DockerfilePath: "Dockerfile.rhel",
+						Inputs: map[string]api.ImageBuildInputs{
+							"root": {As: []string{"ocp/builder:something"}},
+						},
+					},
+					To: "promotionTarget",
+				}},
+				PromotionConfiguration: &api.PromotionConfiguration{Namespace: "ocp", Name: majorMinor.String()},
+				Metadata:               api.Metadata{Branch: "master"},
+			},
+			ensureCorrectPromotionDockerfile:   true,
+			promotionTargetToDockerfileMapping: map[string]string{fmt.Sprintf("registry.svc.ci.openshift.org/ocp/%s:promotionTarget", majorMinor.String()): "Dockerfile.rhel"},
+		},
+		{
+			name: "Dockerfile+Context dir gets fixed up",
+			config: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						ContextDir:     "some-dir",
+						DockerfilePath: "Dockerfile.rhel",
+						Inputs: map[string]api.ImageBuildInputs{
+							"root": {As: []string{"ocp/builder:something"}},
+						},
+					},
+					To: "promotionTarget",
+				}},
+				PromotionConfiguration: &api.PromotionConfiguration{Namespace: "ocp", Name: majorMinor.String()},
+				Metadata:               api.Metadata{Branch: "master"},
+			},
+			ensureCorrectPromotionDockerfile:   true,
+			promotionTargetToDockerfileMapping: map[string]string{fmt.Sprintf("registry.svc.ci.openshift.org/ocp/%s:promotionTarget", majorMinor.String()): "other_dir/Dockerfile.rhel"},
+			expectWrite:                        true,
+		},
+		{
+			name: "Dockerfile+Context dir is correct, nothing to do",
+			config: &api.ReleaseBuildConfiguration{
+				Images: []api.ProjectDirectoryImageBuildStepConfiguration{{
+					ProjectDirectoryImageBuildInputs: api.ProjectDirectoryImageBuildInputs{
+						ContextDir:     "some_dir",
+						DockerfilePath: "Dockerfile.rhel",
+						Inputs: map[string]api.ImageBuildInputs{
+							"root": {As: []string{"ocp/builder:something"}},
+						},
+					},
+					To: "promotionTarget",
+				}},
+				PromotionConfiguration: &api.PromotionConfiguration{Namespace: "ocp", Name: majorMinor.String()},
+				Metadata:               api.Metadata{Branch: "master"},
+			},
+			ensureCorrectPromotionDockerfile:   true,
+			promotionTargetToDockerfileMapping: map[string]string{fmt.Sprintf("registry.svc.ci.openshift.org/ocp/%s:promotionTarget", majorMinor.String()): "some_dir/Dockerfile.rhel"},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -151,7 +247,15 @@ func TestReplacer(t *testing.T) {
 			t.Parallel()
 
 			fakeWriter := &fakeWriter{}
-			if err := replacer(fakeGithubFileGetterFactory(tc.files), fakeWriter.Write, tc.pruneUnusedReplacementsEnabled, tc.pruneOCPBuilderReplacementsEnabled)(tc.config, &config.Info{}); err != nil {
+			if err := replacer(
+				fakeGithubFileGetterFactory(tc.files),
+				fakeWriter.Write,
+				tc.pruneUnusedReplacementsEnabled,
+				tc.pruneOCPBuilderReplacementsEnabled,
+				tc.ensureCorrectPromotionDockerfile,
+				tc.promotionTargetToDockerfileMapping,
+				majorMinor,
+			)(tc.config, &config.Info{}); err != nil {
 				t.Errorf("replacer failed: %v", err)
 			}
 			if (fakeWriter.data != nil) != tc.expectWrite {
