@@ -36,7 +36,7 @@ function createSecretCollection(){
   .then(function (response) {
     if (response.ok) {
       fetchAndRenderSecretCollections();
-      (document.getElementById("createCollection") as HTMLDivElement).classList.add("hidden");
+      hideModal();
     } else {
       return response.text();
     };
@@ -77,15 +77,15 @@ document.getElementById("newCollectionButton")?.addEventListener("click", (e: Ev
   clearCreateSecretCollectionError();
   document.getElementById("deleteConfirmation")?.classList.add("hidden");
   document.getElementById("createCollectionInput").classList.remove("hidden");
-  document.getElementById("createCollection")?.classList.remove("hidden");
+  showModal();
 })
-document.getElementById("abortCreateCollectionButton")?.addEventListener("click", (e: Event) => {
-  document.getElementById("createCollection")?.classList.add("hidden");
-})
+
+document.getElementById("abortCreateCollectionButton")?.addEventListener("click", (e: Event) => hideModal())
+
 document.addEventListener("keydown", event => {
   // esc
   if (event.keyCode == 27) {
-    (document.getElementById("createCollection") as HTMLDivElement).classList.add("hidden");
+    hideModal();
   };
 })
 
@@ -101,7 +101,7 @@ function deleteColectionEventHandler(collectionName: string) {
     cancelButton.innerHTML = "cancel";
     cancelButton.classList.add("grey-button");
     cancelButton.addEventListener("click", (e: Event) =>{
-      document.getElementById("createCollection")?.classList.add("hidden");
+      hideModal();
       document.getElementById("deleteConfirmation")?.classList.add("hidden");
     })
     deleteConfirmation.appendChild(cancelButton);
@@ -115,7 +115,7 @@ function deleteColectionEventHandler(collectionName: string) {
       .then(function (response){
         if (response.ok){
           fetchAndRenderSecretCollections();
-          (document.getElementById("createCollection") as HTMLDivElement).classList.add("hidden");
+          hideModal();
         } else {
           return response.text();
         }
@@ -133,6 +133,14 @@ function deleteColectionEventHandler(collectionName: string) {
     clearCreateSecretCollectionError();
     document.getElementById("createCollectionInput")?.classList.add("hidden");
     document.getElementById("deleteConfirmation")?.classList.remove("hidden");
-    document.getElementById("createCollection")?.classList.remove("hidden");
+    showModal();
   }
+}
+
+function hideModal() {
+    document.getElementById("modalContainer")?.classList.add("hidden");
+}
+
+function showModal() {
+    document.getElementById("modalContainer")?.classList.remove("hidden");
 }
