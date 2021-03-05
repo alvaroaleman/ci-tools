@@ -131,3 +131,9 @@ document.addEventListener("keydown", event => {
 })
 
 document.getElementById("createCollectionButton").addEventListener("click", (e: Event) => createSecretCollection());
+
+function test(msg: string) function {
+  return function(){
+     console.log(msg);
+  }
+}

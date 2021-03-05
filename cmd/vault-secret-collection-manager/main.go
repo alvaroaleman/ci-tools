@@ -196,13 +196,13 @@ func (m *secretCollectionManager) deleteCollectionHandler(l *logrus.Entry, user 
 		return
 	}
 
-	if err := m.deleteCollection(l, name); err != nil {
+	if err := m.deleteCollection(name); err != nil {
 		l.WithError(err).Error("Failed to delete colection")
 		http.Error(w, fmt.Sprintf("failed to delete secret collection. RequestID: %s", l.Data["UID"]), 500)
 	}
 }
 
-func (m *secretCollectionManager) deleteCollection(l *logrus.Entry, name string) error {
+func (m *secretCollectionManager) deleteCollection(name string) error {
 	// First delete the data, then the group to be sure that users retain access until all
 	// data is deleted.
 	path := m.kvStorePrefix + "/" + prefixedName(name)

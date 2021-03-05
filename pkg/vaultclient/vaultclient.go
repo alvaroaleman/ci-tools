@@ -67,6 +67,9 @@ func (v *VaultClient) ListKVRecursively(path string) ([]string, error) {
 		}
 		for _, child := range children {
 			if strings.HasSuffix(child, "/") {
+				// staticcheck complains `this result of append is never used, except maybe in other appends` but
+				// we do use it in the initial range.
+				// nolint: staticcheck
 				paths = append(paths, child)
 			} else {
 				result = append(result, strings.Join([]string{path, child}, "/"))
