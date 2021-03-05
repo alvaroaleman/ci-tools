@@ -77,9 +77,12 @@ document.getElementById("newCollectionButton")?.addEventListener("click", (e: Ev
 document.getElementById("abortCreateCollectionButton")?.addEventListener("click", (e: Event) => hideModal())
 
 document.addEventListener("keydown", event => {
-  // esc
-  if (event.keyCode == 27) {
+  const escKeyCode = 27;
+  const enterKeyCode = 13;
+  if (event.keyCode == escKeyCode) {
     hideModal();
+  } else if (event.keyCode == enterKeyCode && !document.getElementById("createCollectionInput")?.classList.contains("hidden")) {
+    createSecretCollection();
   };
 })
 
