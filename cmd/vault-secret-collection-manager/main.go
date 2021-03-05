@@ -193,6 +193,7 @@ func (m *secretCollectionManager) deleteCollectionHandler(l *logrus.Entry, user 
 	}
 	if !isMember {
 		http.Error(w, fmt.Sprintf("secret collection not found. RequestID: %s", l.Data["UID"]), 404)
+		return
 	}
 
 	if err := m.deleteCollection(l, name); err != nil {
