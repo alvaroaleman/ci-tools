@@ -28,21 +28,18 @@ function renderCollectionTable(data: secretCollection[]) {
 }
 renderCollectionTable(secretCollections);
 
-function createSecretCollection(){
+function createSecretCollection() {
   let input = document.getElementById("name") as HTMLInputElement;
   let name = input.value;
   input.value = "";
   fetch(window.location.protocol + "//" + window.location.host + "/secretcollection/" + name, {method: "PUT"})
-  .then(function (response) {
-    if (response.ok) {
-      fetchAndRenderSecretCollections();
-      hideModal();
-    } else {
-      return response.text();
-    };
-  })
-  .then(function (errMsg: string){
-    displayCreateSecretCollectionError("create secret collection", errMsg)  ;
+  .then(async function (response) {
+    if (!response.ok) {
+      const responseText = await response.text();
+      throw responseText;
+    }
+    fetchAndRenderSecretCollections();
+    hideModal();
   })
   .catch(function (error) {
     displayCreateSecretCollectionError("create secret collection", error);
@@ -50,32 +47,29 @@ function createSecretCollection(){
 };
 
 function fetchAndRenderSecretCollections() {
-  fetch(window.location.protocol + "//" + window.location.host + "/secretcollection/")
-  .then(function(response) {
-    if (response.ok) {
-      return response.text();
+  fetch(window.location.protocol + "//" + window.location.host + "/secretcollection")
+  .then(async function(response) {
+    const msg = await response.text();
+    if (!response.ok) {
+      throw msg;
     }
-  })
-  .then(function(data: string) {
-    renderCollectionTable(JSON.parse(data) as secretCollection[]);
+    renderCollectionTable(JSON.parse(msg) as secretCollection[]);
   });
 }
 
 function displayCreateSecretCollectionError(attemptedAction: string, msg: string) {
-  let div = document.getElementById("createCollectionError") as HTMLDivElement;
+  let div = document.getElementById("modalError") as HTMLDivElement;
   div.innerHTML = `Failed to ${attemptedAction}: ${msg}`;
   div.classList.remove("hidden");
 }
 
-function clearCreateSecretCollectionError(){
-  let div = document.getElementById("createCollectionError") as HTMLDivElement;
+function clearCreateSecretCollectionError() {
+  let div = document.getElementById("modalError") as HTMLDivElement;
   div.innerHTML = ""
   div.classList.add("hidden");
 }
 
 document.getElementById("newCollectionButton")?.addEventListener("click", (e: Event) => {
-  clearCreateSecretCollectionError();
-  document.getElementById("deleteConfirmation")?.classList.add("hidden");
   document.getElementById("createCollectionInput").classList.remove("hidden");
   showModal();
 })
@@ -102,7 +96,6 @@ function deleteColectionEventHandler(collectionName: string) {
     cancelButton.classList.add("grey-button");
     cancelButton.addEventListener("click", (e: Event) =>{
       hideModal();
-      document.getElementById("deleteConfirmation")?.classList.add("hidden");
     })
     deleteConfirmation.appendChild(cancelButton);
 
@@ -112,16 +105,13 @@ function deleteColectionEventHandler(collectionName: string) {
     confirmButton.classList.add("red-button");
     confirmButton.addEventListener("click", (e: Event) => {
       fetch(window.location.protocol + "//" + window.location.host + "/secretcollection/" + collectionName, {method: "DELETE"})
-      .then(function (response){
-        if (response.ok){
-          fetchAndRenderSecretCollections();
-          hideModal();
-        } else {
-          return response.text();
+      .then(async function (response){
+        if (!response.ok){
+          const msg = await response.text();
+          throw msg;
         }
-      })
-      .then(function (errMsg: string) {
-        displayCreateSecretCollectionError("delete secret collection", errMsg);
+        fetchAndRenderSecretCollections();
+        hideModal();
       })
       .catch(function (error) {
         displayCreateSecretCollectionError("delete secret collection", error);
@@ -131,7 +121,6 @@ function deleteColectionEventHandler(collectionName: string) {
     deleteConfirmation.appendChild(confirmButton);
 
     clearCreateSecretCollectionError();
-    document.getElementById("createCollectionInput")?.classList.add("hidden");
     document.getElementById("deleteConfirmation")?.classList.remove("hidden");
     showModal();
   }
@@ -139,6 +128,11 @@ function deleteColectionEventHandler(collectionName: string) {
 
 function hideModal() {
     document.getElementById("modalContainer")?.classList.add("hidden");
+    clearCreateSecretCollectionError();
+    let modalContent = document.getElementById("modalContent") as HTMLDivElement;
+    for (let child of Array.from(modalContent.children)) {
+        child.classList.add("hidden");
+    }
 }
 
 function showModal() {
