@@ -22,6 +22,7 @@ function renderCollectionTable(data: secretCollection[]) {
     deleteCell.addEventListener("click", (e: Event) => {
       let deleteConfirmation = document.getElementById("deleteConfirmation") as HTMLDivElement;
       deleteConfirmation.innerHTML = `Are you sure you want to irreversibly delete the secret collection ${secretCollection.name} and all its content?<br><br>`;
+
       let cancelButton = document.createElement("button") as HTMLButtonElement;
       cancelButton.type = "button";
       cancelButton.innerHTML = "cancel";
@@ -31,6 +32,31 @@ function renderCollectionTable(data: secretCollection[]) {
         document.getElementById("deleteConfirmation")?.classList.add("hidden");
       })
       deleteConfirmation.appendChild(cancelButton);
+
+      let confirmButton = document.createElement("button") as HTMLButtonElement;
+      confirmButton.type = "button";
+      confirmButton.innerHTML = `<i class="fa fa-trash"></i> Delete`;
+      confirmButton.classList.add("red-button");
+      confirmButton.addEventListener("click", (e: Event) => {
+        fetch(window.location.protocol + "//" + window.location.host + "/secretcollection/" + secretCollection.name, {method: "DELETE"})
+        .then(function (response){
+          if (response.ok){
+            fetchAndRenderSecretCollections();
+            (document.getElementById("createCollection") as HTMLDivElement).classList.add("hidden");
+          } else {
+            return response.text();
+          }
+        })
+        .then(function (errMsg: string) {
+          displayCreateSecretCollectionError("delete secret collection", errMsg);
+        })
+        .catch(function (error) {
+          displayCreateSecretCollectionError("delete secret collection", error);
+        })
+      })
+      deleteConfirmation.append("          ");
+      deleteConfirmation.appendChild(confirmButton);
+
       clearCreateSecretCollectionError();
       document.getElementById("createCollectionInput")?.classList.add("hidden");
       document.getElementById("deleteConfirmation")?.classList.remove("hidden");
@@ -57,10 +83,10 @@ function createSecretCollection(){
     };
   })
   .then(function (errMsg: string){
-    displayCreateSecretCollectionError(errMsg)  ;
+    displayCreateSecretCollectionError("create secret collection", errMsg)  ;
   })
   .catch(function (error) {
-    displayCreateSecretCollectionError(error);
+    displayCreateSecretCollectionError("create secret collection", error);
   });
 };
 
@@ -76,9 +102,9 @@ function fetchAndRenderSecretCollections() {
   });
 }
 
-function displayCreateSecretCollectionError(msg: string) {
+function displayCreateSecretCollectionError(attemptedAction: string, msg: string) {
   let div = document.getElementById("createCollectionError") as HTMLDivElement;
-  div.innerHTML = `Failed to create secret colltion: ${msg}`;
+  div.innerHTML = `Failed to ${attemptedAction}: ${msg}`;
   div.classList.remove("hidden");
 }
 
