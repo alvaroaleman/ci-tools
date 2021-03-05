@@ -17,6 +17,25 @@ function renderCollectionTable(data: secretCollection[]) {
     row.insertCell().innerHTML = secretCollection.name;
     row.insertCell().innerHTML = secretCollection.path;
     row.insertCell().innerHTML = secretCollection.members.toString();
+    let deleteCell = row.insertCell();
+    deleteCell.innerHTML = `<button class="red-button"><i class="fa fa-trash"></i> Delete</button>`;
+    deleteCell.addEventListener("click", (e: Event) => {
+      let deleteConfirmation = document.getElementById("deleteConfirmation") as HTMLDivElement;
+      deleteConfirmation.innerHTML = `Are you sure you want to irreversibly delete the secret collection ${secretCollection.name} and all its content?<br><br>`;
+      let cancelButton = document.createElement("button") as HTMLButtonElement;
+      cancelButton.type = "button";
+      cancelButton.innerHTML = "cancel";
+      cancelButton.classList.add("grey-button");
+      cancelButton.addEventListener("click", (e: Event) =>{
+        document.getElementById("createCollection")?.classList.add("hidden");
+        document.getElementById("deleteConfirmation")?.classList.add("hidden");
+      })
+      deleteConfirmation.appendChild(cancelButton);
+      clearCreateSecretCollectionError();
+      document.getElementById("createCollectionInput")?.classList.add("hidden");
+      document.getElementById("deleteConfirmation")?.classList.remove("hidden");
+      document.getElementById("createCollection")?.classList.remove("hidden");
+    });
   }
 
   const oldTableBody = document.getElementById("secretCollectionTableBody") as HTMLTableSectionElement;
@@ -71,6 +90,8 @@ function clearCreateSecretCollectionError(){
 
 document.getElementById("newCollectionButton")?.addEventListener("click", (e: Event) => {
   clearCreateSecretCollectionError();
+  document.getElementById("deleteConfirmation")?.classList.add("hidden");
+  document.getElementById("createCollectionInput").classList.remove("hidden");
   document.getElementById("createCollection")?.classList.remove("hidden");
 })
 document.getElementById("abortCreateCollectionButton")?.addEventListener("click", (e: Event) => {
