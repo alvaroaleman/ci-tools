@@ -19,49 +19,8 @@ function renderCollectionTable(data: secretCollection[]) {
     row.insertCell().innerHTML = secretCollection.members.toString();
     let deleteCell = row.insertCell();
     deleteCell.innerHTML = `<button class="red-button"><i class="fa fa-trash"></i> Delete</button>`;
-    deleteCell.addEventListener("click", (e: Event) => {
-      let deleteConfirmation = document.getElementById("deleteConfirmation") as HTMLDivElement;
-      deleteConfirmation.innerHTML = `Are you sure you want to irreversibly delete the secret collection ${secretCollection.name} and all its content?<br><br>`;
-
-      let cancelButton = document.createElement("button") as HTMLButtonElement;
-      cancelButton.type = "button";
-      cancelButton.innerHTML = "cancel";
-      cancelButton.classList.add("grey-button");
-      cancelButton.addEventListener("click", (e: Event) =>{
-        document.getElementById("createCollection")?.classList.add("hidden");
-        document.getElementById("deleteConfirmation")?.classList.add("hidden");
-      })
-      deleteConfirmation.appendChild(cancelButton);
-
-      let confirmButton = document.createElement("button") as HTMLButtonElement;
-      confirmButton.type = "button";
-      confirmButton.innerHTML = `<i class="fa fa-trash"></i> Delete`;
-      confirmButton.classList.add("red-button");
-      confirmButton.addEventListener("click", (e: Event) => {
-        fetch(window.location.protocol + "//" + window.location.host + "/secretcollection/" + secretCollection.name, {method: "DELETE"})
-        .then(function (response){
-          if (response.ok){
-            fetchAndRenderSecretCollections();
-            (document.getElementById("createCollection") as HTMLDivElement).classList.add("hidden");
-          } else {
-            return response.text();
-          }
-        })
-        .then(function (errMsg: string) {
-          displayCreateSecretCollectionError("delete secret collection", errMsg);
-        })
-        .catch(function (error) {
-          displayCreateSecretCollectionError("delete secret collection", error);
-        })
-      })
-      deleteConfirmation.append("          ");
-      deleteConfirmation.appendChild(confirmButton);
-
-      clearCreateSecretCollectionError();
-      document.getElementById("createCollectionInput")?.classList.add("hidden");
-      document.getElementById("deleteConfirmation")?.classList.remove("hidden");
-      document.getElementById("createCollection")?.classList.remove("hidden");
-    });
+    const deleteHandler = deleteColectionEventHandler(secretCollection.name)
+    deleteCell.addEventListener("click", (e: Event) => deleteHandler());
   }
 
   const oldTableBody = document.getElementById("secretCollectionTableBody") as HTMLTableSectionElement;
@@ -132,8 +91,48 @@ document.addEventListener("keydown", event => {
 
 document.getElementById("createCollectionButton").addEventListener("click", (e: Event) => createSecretCollection());
 
-function test(msg: string) function {
+function deleteColectionEventHandler(collectionName: string) {
   return function(){
-     console.log(msg);
+    let deleteConfirmation = document.getElementById("deleteConfirmation") as HTMLDivElement;
+    deleteConfirmation.innerHTML = `Are you sure you want to irreversibly delete the secret collection ${collectionName} and all its content?<br><br>`;
+
+    let cancelButton = document.createElement("button") as HTMLButtonElement;
+    cancelButton.type = "button";
+    cancelButton.innerHTML = "cancel";
+    cancelButton.classList.add("grey-button");
+    cancelButton.addEventListener("click", (e: Event) =>{
+      document.getElementById("createCollection")?.classList.add("hidden");
+      document.getElementById("deleteConfirmation")?.classList.add("hidden");
+    })
+    deleteConfirmation.appendChild(cancelButton);
+
+    let confirmButton = document.createElement("button") as HTMLButtonElement;
+    confirmButton.type = "button";
+    confirmButton.innerHTML = `<i class="fa fa-trash"></i> Delete`;
+    confirmButton.classList.add("red-button");
+    confirmButton.addEventListener("click", (e: Event) => {
+      fetch(window.location.protocol + "//" + window.location.host + "/secretcollection/" + collectionName, {method: "DELETE"})
+      .then(function (response){
+        if (response.ok){
+          fetchAndRenderSecretCollections();
+          (document.getElementById("createCollection") as HTMLDivElement).classList.add("hidden");
+        } else {
+          return response.text();
+        }
+      })
+      .then(function (errMsg: string) {
+        displayCreateSecretCollectionError("delete secret collection", errMsg);
+      })
+      .catch(function (error) {
+        displayCreateSecretCollectionError("delete secret collection", error);
+      })
+    })
+    deleteConfirmation.append("          ");
+    deleteConfirmation.appendChild(confirmButton);
+
+    clearCreateSecretCollectionError();
+    document.getElementById("createCollectionInput")?.classList.add("hidden");
+    document.getElementById("deleteConfirmation")?.classList.remove("hidden");
+    document.getElementById("createCollection")?.classList.remove("hidden");
   }
 }
