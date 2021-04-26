@@ -8,28 +8,58 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/sirupsen/logrus"
 )
 
-func NewFromKubernetesAuth(addr, role string) (*VaultClient, error) {
+func getKuberntesAuthToken(client *VaultClient, role string) (string, time.Duration, error) {
+
+	// Clone the client before resetting the token
+	var err error
+	client.Client, err = client.Client.Clone()
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to clone client: %w", err)
+	}
+	client.SetToken("")
+
 	serviceAccountToken, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
 	if err != nil {
-		return nil, fmt.Errorf("failed to read serviceAccountToken from /var/run/secrets/kubernetes.io/serviceaccount/token: %w", err)
-	}
-	client, err := api.NewClient(&api.Config{Address: addr})
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct client: %w", err)
+		return "", 0, fmt.Errorf("failed to read serviceAccountToken from /var/run/secrets/kubernetes.io/serviceaccount/token: %w", err)
 	}
 	resp, err := client.Logical().Write("auth/kubernetes/login", map[string]interface{}{
 		"role": role,
 		"jwt":  string(serviceAccountToken),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to log into vault: %w", err)
+		return "", 0, fmt.Errorf("failed to log into vault: %w", err)
 	}
-	client.SetToken(resp.Auth.ClientToken)
-	return &VaultClient{client}, nil
+
+	ttl, err := resp.TokenTTL()
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get ttl from token: %w", err)
+	}
+
+	return resp.Auth.ClientToken, ttl, nil
+}
+
+func NewFromKubernetesAuth(addr, role string) (*VaultClient, error) {
+	upstreamClient, err := api.NewClient(&api.Config{Address: addr})
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct client: %w", err)
+	}
+	client := &VaultClient{upstreamClient}
+	token, ttl, err := getKuberntesAuthToken(client, role)
+	if err != nil {
+		return nil, err
+	}
+	client.SetToken(token)
+	go client.refreshTokenWhenNeeded(ttl, func(client *VaultClient) (string, time.Duration, error) {
+		return getKuberntesAuthToken(client, role)
+	})
+
+	return client, nil
 }
 
 func NewFromUserPass(addr, user, pass string) (*VaultClient, error) {
@@ -56,6 +86,26 @@ func New(addr, token string) (*VaultClient, error) {
 
 type VaultClient struct {
 	*api.Client
+}
+
+func (v *VaultClient) refreshTokenWhenNeeded(ttl time.Duration, refreshFn func(*VaultClient) (string, time.Duration, error)) {
+	var newToken string
+	var err error
+	for {
+		time.Sleep(ttl / 2)
+
+		try := 1
+		for backoff := 2 * time.Second; ; backoff = backoff * backoff {
+			newToken, ttl, err = refreshFn(v)
+			if err != nil {
+				logrus.WithError(err).WithField("backoff", backoff.String()).WithField("try", try).Error("failed to refresh vault token")
+				try++
+				continue
+			}
+			v.SetToken(newToken)
+			break
+		}
+	}
 }
 
 func (v *VaultClient) GetUserFromAliasName(userName string) (*Entity, error) {
