@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/wait"
+
 	"github.com/hashicorp/vault/api"
 	"github.com/sirupsen/logrus"
 )
@@ -93,18 +95,33 @@ func (v *VaultClient) refreshTokenWhenNeeded(ttl time.Duration, refreshFn func(*
 	var err error
 	for {
 		time.Sleep(ttl / 2)
+		func() {
+			ctx, cancel := context.WithTimeout(context.Background(), ttl/2)
+			defer cancel()
 
-		try := 1
-		for backoff := 2 * time.Second; ; backoff = backoff * backoff {
-			newToken, ttl, err = refreshFn(v)
-			if err != nil {
-				logrus.WithError(err).WithField("backoff", backoff.String()).WithField("try", try).Error("failed to refresh vault token")
-				try++
-				continue
+			try := 1
+			if err := wait.ExponentialBackoffWithContext(ctx,
+				wait.Backoff{
+					Duration: 2 * time.Second,
+					Factor:   2,
+					// Lets hope no one runs this on an architecture with less than 64 bits
+					Steps: 1<<63 - 1,
+				},
+				func() (bool, error) {
+					newToken, ttl, err = refreshFn(v)
+					if err != nil {
+						logrus.WithError(err).WithField("try", try).Error("failed to refresh vault token")
+						try++
+						return false, nil
+					}
+					v.SetToken(newToken)
+					return true, nil
+				}); err != nil {
+				// Panic so ppl get a stacktrace. We should never get here.
+				panic(fmt.Sprintf("failed to refresh vault token before it expired: %v", err))
 			}
-			v.SetToken(newToken)
-			break
-		}
+		}()
+
 	}
 }
 
